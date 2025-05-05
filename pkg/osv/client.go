@@ -170,7 +170,12 @@ func (c *Client) Query(ctx context.Context, req QueryRequest) (*QueryResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log the error or handle it as appropriate for your application
+			fmt.Printf("Error closing response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -204,7 +209,12 @@ func (c *Client) QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryB
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log the error or handle it as appropriate for your application
+			fmt.Printf("Error closing response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -231,7 +241,12 @@ func (c *Client) GetVulnerability(ctx context.Context, id string) (*Vulnerabilit
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log the error or handle it as appropriate for your application
+			fmt.Printf("Error closing response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
