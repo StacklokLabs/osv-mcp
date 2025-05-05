@@ -32,3 +32,6 @@ Thumbs.db
 
 # ko build artifacts
 .ko.local/
+
+# task
+.task
