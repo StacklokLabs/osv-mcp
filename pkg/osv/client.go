@@ -40,7 +40,7 @@ type Client struct {
 func NewClient(opts ...ClientOption) *Client {
 	client := &Client{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 60 * time.Second, // Increased timeout to 60 seconds
 		},
 		baseURL: BaseURL,
 	}
@@ -111,11 +111,11 @@ type Range struct {
 
 // Affected represents a package affected by a vulnerability
 type Affected struct {
-	Package           Package               `json:"package"`
-	Ranges            []Range               `json:"ranges,omitempty"`
-	Versions          []string              `json:"versions,omitempty"`
-	EcosystemSpecific map[string]string     `json:"ecosystem_specific,omitempty"`
-	DatabaseSpecific  map[string]string     `json:"database_specific,omitempty"`
+	Package           Package                 `json:"package"`
+	Ranges            []Range                 `json:"ranges,omitempty"`
+	Versions          []string                `json:"versions,omitempty"`
+	EcosystemSpecific map[string]interface{}  `json:"ecosystem_specific,omitempty"`
+	DatabaseSpecific  map[string]interface{}  `json:"database_specific,omitempty"`
 }
 
 // Vulnerability represents a vulnerability in the OSV API
@@ -159,7 +159,11 @@ func (c *Client) Query(ctx context.Context, req QueryRequest) (*QueryResponse, e
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 	
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	// Create a new context with a 30-second timeout
+	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -198,7 +202,11 @@ func (c *Client) QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryB
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 	
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
+	// Create a new context with a 30-second timeout
+	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -232,7 +240,11 @@ func (c *Client) QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryB
 func (c *Client) GetVulnerability(ctx context.Context, id string) (*Vulnerability, error) {
 	url := fmt.Sprintf("%s%s/%s", c.baseURL, VulnEndpoint, id)
 	
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	// Create a new context with a 30-second timeout
+	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
