@@ -1,3 +1,4 @@
+// Package mcp provides MCP server tools for OSV.
 package mcp
 
 import (
@@ -15,7 +16,7 @@ import (
 const (
 	// ServerName is the name of the MCP server
 	ServerName = "osv-mcp"
-	
+
 	// ServerVersion is the version of the MCP server
 	ServerVersion = "0.1.0"
 )
@@ -235,7 +236,9 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 		}
 
 		if purl != "" && (packageName != "" || ecosystem != "") {
-			return mcp.NewToolResultError(fmt.Sprintf("If purl is specified, package_name and ecosystem should not be specified in query %d", i)), nil
+			return mcp.NewToolResultError(
+				fmt.Sprintf("If purl is specified, package_name and ecosystem should not be specified in query %d", i),
+			), nil
 		}
 
 		// Create query request
