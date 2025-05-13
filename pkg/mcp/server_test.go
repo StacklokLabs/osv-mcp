@@ -15,8 +15,8 @@ import (
 
 // mockOSVClient is a mock implementation of the OSV client for testing
 type mockOSVClient struct {
-	queryFunc           func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error)
-	queryBatchFunc      func(ctx context.Context, req osv.QueryBatchRequest) (*osv.QueryBatchResponse, error)
+	queryFunc            func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error)
+	queryBatchFunc       func(ctx context.Context, req osv.QueryBatchRequest) (*osv.QueryBatchResponse, error)
 	getVulnerabilityFunc func(ctx context.Context, id string) (*osv.Vulnerability, error)
 }
 
@@ -36,17 +36,19 @@ func (m *mockOSVClient) GetVulnerability(ctx context.Context, id string) (*osv.V
 func newMockOSVClient() *mockOSVClient {
 	return &mockOSVClient{
 		queryFunc: func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error) {
+			_, _ = ctx, req
 			return &osv.QueryResponse{
 				Vulns: []osv.Vulnerability{
 					{
-						ID:      "TEST-2023-001",
-						Summary: "Test vulnerability",
+						ID:       "TEST-2023-001",
+						Summary:  "Test vulnerability",
 						Modified: time.Now(),
 					},
 				},
 			}, nil
 		},
 		queryBatchFunc: func(ctx context.Context, req osv.QueryBatchRequest) (*osv.QueryBatchResponse, error) {
+			_, _ = ctx, req
 			return &osv.QueryBatchResponse{
 				Results: []osv.BatchQueryResult{
 					{
@@ -64,9 +66,10 @@ func newMockOSVClient() *mockOSVClient {
 			}, nil
 		},
 		getVulnerabilityFunc: func(ctx context.Context, id string) (*osv.Vulnerability, error) {
+			_, _ = ctx, id
 			return &osv.Vulnerability{
-				ID:      "TEST-2023-001",
-				Summary: "Test vulnerability",
+				ID:       "TEST-2023-001",
+				Summary:  "Test vulnerability",
 				Modified: time.Now(),
 			}, nil
 		},
@@ -78,44 +81,45 @@ func getTextContent(result *mcp.CallToolResult) string {
 	if len(result.Content) == 0 {
 		return ""
 	}
-	
+
 	textContent, ok := mcp.AsTextContent(result.Content[0])
 	if !ok {
 		return ""
 	}
-	
+
 	return textContent.Text
 }
 
 func TestHandleQueryVulnerability(t *testing.T) {
 	// Create mock OSV client
 	mockClient := newMockOSVClient()
-	
+
 	// Set up expected query parameters
 	expectedPackageName := "test-package"
 	expectedEcosystem := "npm"
 	expectedVersion := "1.0.0"
-	
+
 	// Override query function to check parameters
 	mockClient.queryFunc = func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error) {
+		_, _ = ctx, req
 		assert.Equal(t, expectedPackageName, req.Package.Name)
 		assert.Equal(t, expectedEcosystem, req.Package.Ecosystem)
 		assert.Equal(t, expectedVersion, req.Version)
-		
+
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:      "TEST-2023-001",
-					Summary: "Test vulnerability",
+					ID:       "TEST-2023-001",
+					Summary:  "Test vulnerability",
 					Modified: time.Now(),
 				},
 			},
 		}, nil
 	}
-	
+
 	// Create server with mock client
 	server := NewServer(WithOSVClient(mockClient))
-	
+
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
@@ -123,24 +127,24 @@ func TestHandleQueryVulnerability(t *testing.T) {
 		"ecosystem":    expectedEcosystem,
 		"version":      expectedVersion,
 	}
-	
+
 	// Call handler
 	result, err := server.handleQueryVulnerability(context.Background(), request)
-	
+
 	// Check result
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.False(t, result.IsError)
-	
+
 	// Get text content
 	text := getTextContent(result)
 	assert.NotEmpty(t, text)
-	
+
 	// Parse result text as JSON
 	var response osv.QueryResponse
 	err = json.Unmarshal([]byte(text), &response)
 	require.NoError(t, err)
-	
+
 	// Check response
 	assert.Len(t, response.Vulns, 1)
 	assert.Equal(t, "TEST-2023-001", response.Vulns[0].ID)
@@ -150,39 +154,40 @@ func TestHandleQueryVulnerability(t *testing.T) {
 func TestHandleQueryVulnerabilityWithPURL(t *testing.T) {
 	// Create mock OSV client
 	mockClient := newMockOSVClient()
-	
+
 	// Set up expected query parameters
 	expectedPURL := "pkg:npm/test-package@1.0.0"
-	
+
 	// Override query function to check parameters
 	mockClient.queryFunc = func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error) {
+		_, _ = ctx, req
 		assert.Equal(t, expectedPURL, req.Package.PURL)
 		assert.Empty(t, req.Package.Name)
 		assert.Empty(t, req.Package.Ecosystem)
-		
+
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:      "TEST-2023-001",
-					Summary: "Test vulnerability",
+					ID:       "TEST-2023-001",
+					Summary:  "Test vulnerability",
 					Modified: time.Now(),
 				},
 			},
 		}, nil
 	}
-	
+
 	// Create server with mock client
 	server := NewServer(WithOSVClient(mockClient))
-	
+
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
 		"purl": expectedPURL,
 	}
-	
+
 	// Call handler
 	result, err := server.handleQueryVulnerability(context.Background(), request)
-	
+
 	// Check result
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -193,38 +198,39 @@ func TestHandleQueryVulnerabilityWithPURL(t *testing.T) {
 func TestHandleQueryVulnerabilityWithCommit(t *testing.T) {
 	// Create mock OSV client
 	mockClient := newMockOSVClient()
-	
+
 	// Set up expected query parameters
 	expectedCommit := "abcdef1234567890"
-	
+
 	// Override query function to check parameters
 	mockClient.queryFunc = func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error) {
+		_, _ = ctx, req
 		assert.Equal(t, expectedCommit, req.Commit)
 		assert.Empty(t, req.Version)
-		
+
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:      "TEST-2023-001",
-					Summary: "Test vulnerability",
+					ID:       "TEST-2023-001",
+					Summary:  "Test vulnerability",
 					Modified: time.Now(),
 				},
 			},
 		}, nil
 	}
-	
+
 	// Create server with mock client
 	server := NewServer(WithOSVClient(mockClient))
-	
+
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
 		"commit": expectedCommit,
 	}
-	
+
 	// Call handler
 	result, err := server.handleQueryVulnerability(context.Background(), request)
-	
+
 	// Check result
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -235,9 +241,10 @@ func TestHandleQueryVulnerabilityWithCommit(t *testing.T) {
 func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 	// Create mock OSV client
 	mockClient := newMockOSVClient()
-	
+
 	// Override query batch function to check parameters
 	mockClient.queryBatchFunc = func(ctx context.Context, req osv.QueryBatchRequest) (*osv.QueryBatchResponse, error) {
+		_, _ = ctx, req
 		assert.Len(t, req.Queries, 2)
 		assert.Equal(t, "test-package-1", req.Queries[0].Package.Name)
 		assert.Equal(t, "npm", req.Queries[0].Package.Ecosystem)
@@ -245,7 +252,7 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 		assert.Equal(t, "test-package-2", req.Queries[1].Package.Name)
 		assert.Equal(t, "npm", req.Queries[1].Package.Ecosystem)
 		assert.Equal(t, "2.0.0", req.Queries[1].Version)
-		
+
 		return &osv.QueryBatchResponse{
 			Results: []osv.BatchQueryResult{
 				{
@@ -273,10 +280,10 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 			},
 		}, nil
 	}
-	
+
 	// Create server with mock client
 	server := NewServer(WithOSVClient(mockClient))
-	
+
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
@@ -293,24 +300,24 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Call handler
 	result, err := server.handleQueryVulnerabilitiesBatch(context.Background(), request)
-	
+
 	// Check result
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.False(t, result.IsError)
-	
+
 	// Get text content
 	text := getTextContent(result)
 	assert.NotEmpty(t, text)
-	
+
 	// Parse result text as JSON
 	var response osv.QueryBatchResponse
 	err = json.Unmarshal([]byte(text), &response)
 	require.NoError(t, err)
-	
+
 	// Check response
 	assert.Len(t, response.Results, 2)
 	assert.Len(t, response.Results[0].Vulns, 1)
@@ -322,48 +329,49 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 func TestHandleGetVulnerability(t *testing.T) {
 	// Create mock OSV client
 	mockClient := newMockOSVClient()
-	
+
 	// Set up expected query parameters
 	expectedID := "TEST-2023-001"
-	
+
 	// Override get vulnerability function to check parameters
 	mockClient.getVulnerabilityFunc = func(ctx context.Context, id string) (*osv.Vulnerability, error) {
+		_ = ctx
 		assert.Equal(t, expectedID, id)
-		
+
 		return &osv.Vulnerability{
-			ID:      expectedID,
-			Summary: "Test vulnerability",
-			Details: "This is a test vulnerability",
+			ID:       expectedID,
+			Summary:  "Test vulnerability",
+			Details:  "This is a test vulnerability",
 			Modified: time.Now(),
 		}, nil
 	}
-	
+
 	// Create server with mock client
 	server := NewServer(WithOSVClient(mockClient))
-	
+
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
 		"id": expectedID,
 	}
-	
+
 	// Call handler
 	result, err := server.handleGetVulnerability(context.Background(), request)
-	
+
 	// Check result
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.False(t, result.IsError)
-	
+
 	// Get text content
 	text := getTextContent(result)
 	assert.NotEmpty(t, text)
-	
+
 	// Parse result text as JSON
 	var vuln osv.Vulnerability
 	err = json.Unmarshal([]byte(text), &vuln)
 	require.NoError(t, err)
-	
+
 	// Check response
 	assert.Equal(t, expectedID, vuln.ID)
 	assert.Equal(t, "Test vulnerability", vuln.Summary)

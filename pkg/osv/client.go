@@ -1,3 +1,4 @@
+// Package osv provides functionality for interacting with osv database.
 package osv
 
 import (
@@ -12,13 +13,13 @@ import (
 const (
 	// BaseURL is the base URL for the OSV API
 	BaseURL = "https://api.osv.dev/v1"
-	
+
 	// QueryEndpoint is the endpoint for querying vulnerabilities
 	QueryEndpoint = "/query"
-	
+
 	// QueryBatchEndpoint is the endpoint for batch querying vulnerabilities
 	QueryBatchEndpoint = "/querybatch"
-	
+
 	// VulnEndpoint is the endpoint for getting vulnerability details
 	VulnEndpoint = "/vulns"
 )
@@ -111,23 +112,23 @@ type Range struct {
 
 // Affected represents a package affected by a vulnerability
 type Affected struct {
-	Package           Package                 `json:"package"`
-	Ranges            []Range                 `json:"ranges,omitempty"`
-	Versions          []string                `json:"versions,omitempty"`
-	EcosystemSpecific map[string]interface{}  `json:"ecosystem_specific,omitempty"`
-	DatabaseSpecific  map[string]interface{}  `json:"database_specific,omitempty"`
+	Package           Package                `json:"package"`
+	Ranges            []Range                `json:"ranges,omitempty"`
+	Versions          []string               `json:"versions,omitempty"`
+	EcosystemSpecific map[string]interface{} `json:"ecosystem_specific,omitempty"`
+	DatabaseSpecific  map[string]interface{} `json:"database_specific,omitempty"`
 }
 
 // Vulnerability represents a vulnerability in the OSV API
 type Vulnerability struct {
-	ID           string     `json:"id"`
-	Summary      string     `json:"summary,omitempty"`
-	Details      string     `json:"details,omitempty"`
-	Modified     time.Time  `json:"modified"`
-	Published    time.Time  `json:"published,omitempty"`
-	References   []Reference `json:"references,omitempty"`
-	Affected     []Affected `json:"affected,omitempty"`
-	SchemaVersion string    `json:"schema_version,omitempty"`
+	ID            string      `json:"id"`
+	Summary       string      `json:"summary,omitempty"`
+	Details       string      `json:"details,omitempty"`
+	Modified      time.Time   `json:"modified"`
+	Published     time.Time   `json:"published,omitempty"`
+	References    []Reference `json:"references,omitempty"`
+	Affected      []Affected  `json:"affected,omitempty"`
+	SchemaVersion string      `json:"schema_version,omitempty"`
 }
 
 // QueryResponse represents a response from the OSV API query endpoint
@@ -138,7 +139,7 @@ type QueryResponse struct {
 
 // BatchQueryResult represents a single result in a batch query response
 type BatchQueryResult struct {
-	Vulns         []struct {
+	Vulns []struct {
 		ID       string    `json:"id"`
 		Modified time.Time `json:"modified"`
 	} `json:"vulns"`
@@ -152,24 +153,25 @@ type QueryBatchResponse struct {
 
 // Query queries the OSV API for vulnerabilities matching the given request
 func (c *Client) Query(ctx context.Context, req QueryRequest) (*QueryResponse, error) {
+	_ = ctx
 	url := fmt.Sprintf("%s%s", c.baseURL, QueryEndpoint)
-	
+
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	// Create a new context with a 30-second timeout
 	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	httpReq.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -180,39 +182,40 @@ func (c *Client) Query(ctx context.Context, req QueryRequest) (*QueryResponse, e
 			fmt.Printf("Error closing response body: %v\n", err)
 		}
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	var queryResp QueryResponse
 	if err := json.NewDecoder(resp.Body).Decode(&queryResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return &queryResp, nil
 }
 
 // QueryBatch queries the OSV API for vulnerabilities matching the given batch request
 func (c *Client) QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryBatchResponse, error) {
+	_ = ctx
 	url := fmt.Sprintf("%s%s", c.baseURL, QueryBatchEndpoint)
-	
+
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	// Create a new context with a 30-second timeout
 	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	httpReq.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -223,32 +226,33 @@ func (c *Client) QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryB
 			fmt.Printf("Error closing response body: %v\n", err)
 		}
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	var batchResp QueryBatchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&batchResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return &batchResp, nil
 }
 
 // GetVulnerability gets a vulnerability by ID
 func (c *Client) GetVulnerability(ctx context.Context, id string) (*Vulnerability, error) {
+	_ = ctx
 	url := fmt.Sprintf("%s%s/%s", c.baseURL, VulnEndpoint, id)
-	
+
 	// Create a new context with a 30-second timeout
 	reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -259,15 +263,15 @@ func (c *Client) GetVulnerability(ctx context.Context, id string) (*Vulnerabilit
 			fmt.Printf("Error closing response body: %v\n", err)
 		}
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	
+
 	var vuln Vulnerability
 	if err := json.NewDecoder(resp.Body).Decode(&vuln); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return &vuln, nil
 }
