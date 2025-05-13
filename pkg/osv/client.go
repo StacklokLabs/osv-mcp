@@ -25,6 +25,8 @@ const (
 )
 
 // OSVClient is the interface for the OSV API client
+//
+//nolint:revive // OSVClient is intentionally named to provide clarity on the client's domain
 type OSVClient interface {
 	Query(ctx context.Context, req QueryRequest) (*QueryResponse, error)
 	QueryBatch(ctx context.Context, req QueryBatchRequest) (*QueryBatchResponse, error)
