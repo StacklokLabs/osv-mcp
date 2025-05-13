@@ -236,7 +236,9 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 		}
 
 		if purl != "" && (packageName != "" || ecosystem != "") {
-			return mcp.NewToolResultError(fmt.Sprintf("If purl is specified, package_name and ecosystem should not be specified in query %d", i)), nil
+			return mcp.NewToolResultError(
+				fmt.Sprintf("If purl is specified, package_name and ecosystem should not be specified in query %d", i),
+			), nil
 		}
 
 		// Create query request
