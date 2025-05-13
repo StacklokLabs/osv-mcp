@@ -99,14 +99,14 @@ func TestQuery(t *testing.T) {
 	assert.Equal(t, "TEST-2023-001", vuln.ID)
 	assert.Equal(t, "Test vulnerability", vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
-	
+
 	expectedModified, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
 	assert.Equal(t, expectedModified, vuln.Modified)
-	
+
 	assert.Len(t, vuln.References, 1)
 	assert.Equal(t, "ADVISORY", vuln.References[0].Type)
 	assert.Equal(t, "https://example.com/advisory/TEST-2023-001", vuln.References[0].URL)
-	
+
 	assert.Len(t, vuln.Affected, 1)
 	assert.Equal(t, "test-package", vuln.Affected[0].Package.Name)
 	assert.Equal(t, "npm", vuln.Affected[0].Package.Ecosystem)
@@ -185,16 +185,16 @@ func TestQueryBatch(t *testing.T) {
 
 	// Check response
 	assert.Len(t, resp.Results, 2)
-	
+
 	assert.Len(t, resp.Results[0].Vulns, 1)
 	assert.Equal(t, "TEST-2023-001", resp.Results[0].Vulns[0].ID)
-	
+
 	expectedModified1, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
 	assert.Equal(t, expectedModified1, resp.Results[0].Vulns[0].Modified)
-	
+
 	assert.Len(t, resp.Results[1].Vulns, 1)
 	assert.Equal(t, "TEST-2023-002", resp.Results[1].Vulns[0].ID)
-	
+
 	expectedModified2, _ := time.Parse(time.RFC3339, "2023-01-02T00:00:00Z")
 	assert.Equal(t, expectedModified2, resp.Results[1].Vulns[0].Modified)
 }
@@ -260,14 +260,14 @@ func TestGetVulnerability(t *testing.T) {
 	assert.Equal(t, "TEST-2023-001", vuln.ID)
 	assert.Equal(t, "Test vulnerability", vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
-	
+
 	expectedModified, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
 	assert.Equal(t, expectedModified, vuln.Modified)
-	
+
 	assert.Len(t, vuln.References, 1)
 	assert.Equal(t, "ADVISORY", vuln.References[0].Type)
 	assert.Equal(t, "https://example.com/advisory/TEST-2023-001", vuln.References[0].URL)
-	
+
 	assert.Len(t, vuln.Affected, 1)
 	assert.Equal(t, "test-package", vuln.Affected[0].Package.Name)
 	assert.Equal(t, "npm", vuln.Affected[0].Package.Ecosystem)
