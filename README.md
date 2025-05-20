@@ -197,6 +197,16 @@ task lint
 task fmt
 ```
 
+## Contributing
+
+We welcome contributions to this MCP server! If you'd like to contribute, please review
+the [CONTRIBUTING guide](./CONTRIBUTING.md) for details on how to get started.
+
+If you run into a bug or have a feature request, please
+[open an issue](https://github.com/StacklokLabs/osv-mcp/issues) in the
+repository or join us in the `#mcp-servers` channel on our
+[community Discord server](https://discord.gg/stacklok).
+
 ## License
 
-MIT
+This project is licensed under the Apache v2 License - see the LICENSE file for details.
