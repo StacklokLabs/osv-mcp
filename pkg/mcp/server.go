@@ -19,6 +19,8 @@ const (
 
 	// ServerVersion is the version of the MCP server
 	ServerVersion = "0.1.0"
+	// ServerPort is the port the MCP server will listen on
+	ServerPort = "8080"
 )
 
 // Server is an MCP server that provides OSV vulnerability information
