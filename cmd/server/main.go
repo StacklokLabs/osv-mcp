@@ -6,15 +6,38 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/StacklokLabs/osv-mcp/pkg/mcp"
 	"github.com/StacklokLabs/osv-mcp/pkg/osv"
 )
 
+// getMCPServerPort returns the port number from MCP_PORT environment variable.
+// If the environment variable is not set or contains an invalid value,
+// it returns the default port 8080.
+func getMCPServerPort() string {
+	port := "8080"
+	if envPort := os.Getenv("MCP_PORT"); envPort != "" {
+		if portNum, err := strconv.Atoi(envPort); err == nil {
+			if portNum >= 0 && portNum <= 65535 {
+				port = envPort
+			} else {
+				log.Printf("Invalid MCP_PORT value: %s (must be between 0 and 65535), using default port 8080", envPort)
+			}
+		} else {
+			log.Printf("Invalid MCP_PORT value: %s (must be a valid number), using default port 8080", envPort)
+		}
+	}
+	return port
+}
+
 func main() {
+	// Get port from environment variable or use default
+	port := getMCPServerPort()
+
 	// Parse command-line flags
-	addr := flag.String("addr", ":8080", "Address to listen on")
+	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
 
 	// Create OSV client

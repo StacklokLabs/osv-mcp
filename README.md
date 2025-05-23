@@ -31,6 +31,22 @@ task build
 
 ## Usage
 
+### Server Configuration
+
+The server can be configured using environment variables:
+
+- `MCP_PORT`: The port number to run the server on (default: 8080)
+  - Must be a valid integer between 0 and 65535
+  - If invalid or not set, the server will use port 8080
+
+Example:
+```bash
+# Run on port 3000
+MCP_PORT=3000 ./osv-mcp
+
+# Run on default port 8080
+./build/osv-mcp-server
+```
 
 ### MCP Tools
 
