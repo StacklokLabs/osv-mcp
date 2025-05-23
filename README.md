@@ -45,7 +45,7 @@ Example:
 MCP_PORT=3000 ./osv-mcp
 
 # Run on default port 8080
-./build/osv-mcp-server
+./osv-mcp
 ```
 
 ### MCP Tools
