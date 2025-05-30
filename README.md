@@ -31,6 +31,31 @@ task build
 
 ## Usage
 
+### Running with ToolHive (Recommended)
+
+The easiest way to run the OSV MCP server is using [ToolHive](https://github.com/stacklok/toolhive), which provides secure, containerized deployment of MCP servers:
+
+```bash
+# Install ToolHive (if not already installed)
+# See: https://github.com/stacklok/toolhive#installation
+
+# Enable auto-discovery to automatically configure supported clients
+thv config auto-discovery true
+
+# Run the OSV MCP server (packaged as 'osv' in ToolHive)
+thv run osv
+
+# List running servers
+thv list
+
+# Get detailed information about the server
+thv registry info osv
+```
+
+The server will be available to your MCP-compatible clients and can query the OSV database for vulnerability information.
+
+### Running from Source
+
 ### Server Configuration
 
 The server can be configured using environment variables:
