@@ -3,7 +3,7 @@ module github.com/StacklokLabs/osv-mcp
 go 1.24.2
 
 require (
-	github.com/mark3labs/mcp-go v0.28.0
+	github.com/mark3labs/mcp-go v0.31.0
 	github.com/stretchr/testify v1.10.0
 )
 
