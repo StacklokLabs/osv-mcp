@@ -61,7 +61,6 @@ func main() {
 	go func() {
 		switch mode {
 		case "stream":
-			log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", *addr)
 			errChan <- mcpServer.ServeHTTPStream(*addr)
 		default:
 			log.Printf("Starting OSV MCP server (SSE) on %s", *addr)
