@@ -39,7 +39,10 @@ func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
-	mode := os.Getenv("MCP_TRANSPORT_MODE") // "stream" or "sse"
+	mode := os.Getenv("MCP_TRANSPORT_MODE")
+	if mode == "" {
+		mode = "sse" // Default to "sse" if MCP_TRANSPORT_MODE is not set
+	}
 
 	// Create OSV client
 	osvClient := osv.NewClient()
