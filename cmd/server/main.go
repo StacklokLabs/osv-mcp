@@ -39,6 +39,7 @@ func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
+	mode := os.Getenv("MCP_TRANSPORT_MODE") // "stream" or "sse"
 
 	// Create OSV client
 	osvClient := osv.NewClient()
@@ -55,7 +56,14 @@ func main() {
 	// Start server in a goroutine
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- mcpServer.ServeSSE(*addr)
+		switch mode {
+		case "stream":
+			log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", *addr)
+			errChan <- mcpServer.ServeHTTPStream(*addr)
+		default:
+			log.Printf("Starting OSV MCP server (SSE) on %s", *addr)
+			errChan <- mcpServer.ServeSSE(*addr)
+		}
 	}()
 
 	// Wait for signal or error

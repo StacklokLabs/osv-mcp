@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -158,6 +159,19 @@ func (s *Server) ServeSSE(addr string) error {
 	return sseServer.Start(addr)
 }
 
+// ServeHTTPStream starts the MCP server using Streamable HTTP transport
+func (s *Server) ServeHTTPStream(addr string) error {
+	log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", addr)
+
+	httpSrv := server.NewStreamableHTTPServer(s.mcpServer,
+		server.WithEndpointPath("/mcp"),
+		server.WithStateLess(true), // stateless mode
+		server.WithHeartbeatInterval(30*time.Second),
+	)
+
+	return httpSrv.Start(addr)
+}
+
 // handleQueryVulnerability handles the query_vulnerability tool
 func (s *Server) handleQueryVulnerability(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	commit := mcp.ParseString(request, "commit", "")
@@ -213,9 +227,14 @@ func (s *Server) handleQueryVulnerability(ctx context.Context, request mcp.CallT
 
 // handleQueryVulnerabilitiesBatch handles the query_vulnerabilities_batch tool
 func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	queriesRaw, ok := request.Params.Arguments["queries"].([]interface{})
+	args, ok := request.Params.Arguments.(map[string]interface{})
 	if !ok {
-		return mcp.NewToolResultError("Invalid queries parameter"), nil
+		return mcp.NewToolResultError("Invalid arguments format"), nil
+	}
+
+	queriesRaw, ok := args["queries"].([]interface{})
+	if !ok {
+		return mcp.NewToolResultError("Invalid 'queries' parameter: must be array"), nil
 	}
 
 	// Convert queries to QueryRequest objects
