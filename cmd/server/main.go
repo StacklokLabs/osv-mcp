@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/StacklokLabs/osv-mcp/pkg/mcp"
@@ -39,7 +40,7 @@ func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
-	mode := os.Getenv("MCP_TRANSPORT_MODE")
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MCP_TRANSPORT_MODE")))
 	if mode == "" {
 		mode = "sse" // Default to "sse" if MCP_TRANSPORT_MODE is not set
 	}
