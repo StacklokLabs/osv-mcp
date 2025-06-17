@@ -71,7 +71,7 @@ The server can be configured using environment variables:
 Example:
 ```bash
 # Run on port 3000
-MCP_PORT=3000 ./osv-mcp
+MCP_PORT=3000 ./build/osv-mcp-server
 
 # Run on default port 8080
 ./build/osv-mcp-server
