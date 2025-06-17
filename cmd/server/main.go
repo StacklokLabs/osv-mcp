@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -13,6 +14,30 @@ import (
 	"github.com/StacklokLabs/osv-mcp/pkg/mcp"
 	"github.com/StacklokLabs/osv-mcp/pkg/osv"
 )
+
+// TransportMode defines the type for transport modes used by the MCP server.
+type TransportMode string
+
+const (
+	// TransportSSE represents the Server-Sent Events transport mode.
+	TransportSSE TransportMode = "sse"
+	// TransportHTTPStream represents the HTTP streaming transport mode.
+	TransportHTTPStream TransportMode = "http-stream"
+)
+
+func getTransportMode() (TransportMode, error) {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MCP_TRANSPORT")))
+	if mode == "" {
+		return TransportSSE, nil // default
+	}
+
+	switch TransportMode(mode) {
+	case TransportSSE, TransportHTTPStream:
+		return TransportMode(mode), nil
+	default:
+		return "", fmt.Errorf("invalid MCP_TRANSPORT: %q (allowed: sse, http-stream)", mode)
+	}
+}
 
 // getMCPServerPort returns the port number from MCP_PORT environment variable.
 // If the environment variable is not set or contains an invalid value,
@@ -40,9 +65,10 @@ func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MCP_TRANSPORT_MODE")))
-	if mode == "" {
-		mode = "sse" // Default to "sse" if MCP_TRANSPORT_MODE is not set
+
+	mode, err := getTransportMode()
+	if err != nil {
+		log.Fatalf("Error getting transport mode: %v", err)
 	}
 
 	// Create OSV client
@@ -61,9 +87,9 @@ func main() {
 	errChan := make(chan error, 1)
 	go func() {
 		switch mode {
-		case "stream":
+		case TransportHTTPStream:
 			errChan <- mcpServer.ServeHTTPStream(*addr)
-		default:
+		case TransportSSE:
 			errChan <- mcpServer.ServeSSE(*addr)
 		}
 	}()

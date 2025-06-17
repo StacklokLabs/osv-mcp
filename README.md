@@ -64,8 +64,8 @@ The server can be configured using environment variables:
   - Must be a valid integer between 0 and 65535
   - If invalid or not set, the server will use port 8080
 
-- `MCP_TRANSPORT_MODE`: The transport mode for the server (default: `sse`)
-  - Supported values: `sse`, `stream`
+- `MCP_TRANSPORT`: The transport mode for the server (default: `sse`)
+  - Supported values: `sse`, `http-stream`
   - If invalid or not set, the server will use SSE transport mode
 
 Example:
