@@ -64,7 +64,6 @@ func main() {
 		case "stream":
 			errChan <- mcpServer.ServeHTTPStream(*addr)
 		default:
-			log.Printf("Starting OSV MCP server (SSE) on %s", *addr)
 			errChan <- mcpServer.ServeSSE(*addr)
 		}
 	}()
