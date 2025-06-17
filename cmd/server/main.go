@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/StacklokLabs/osv-mcp/pkg/mcp"
@@ -39,6 +40,10 @@ func main() {
 	// Parse command-line flags
 	addr := flag.String("addr", ":"+port, "Address to listen on")
 	flag.Parse()
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MCP_TRANSPORT_MODE")))
+	if mode == "" {
+		mode = "sse" // Default to "sse" if MCP_TRANSPORT_MODE is not set
+	}
 
 	// Create OSV client
 	osvClient := osv.NewClient()
@@ -55,7 +60,12 @@ func main() {
 	// Start server in a goroutine
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- mcpServer.ServeSSE(*addr)
+		switch mode {
+		case "stream":
+			errChan <- mcpServer.ServeHTTPStream(*addr)
+		default:
+			errChan <- mcpServer.ServeSSE(*addr)
+		}
 	}()
 
 	// Wait for signal or error
