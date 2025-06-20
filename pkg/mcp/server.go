@@ -164,7 +164,7 @@ func (s *Server) ServeHTTPStream(addr string) error {
 	log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", addr)
 
 	httpSrv := server.NewStreamableHTTPServer(s.mcpServer,
-		server.WithEndpointPath("/mcp"),
+		server.WithEndpointPath("/mcp/"),
 		server.WithStateLess(true), // stateless mode
 		server.WithHeartbeatInterval(30*time.Second),
 	)
