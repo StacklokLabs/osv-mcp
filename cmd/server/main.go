@@ -22,7 +22,7 @@ const (
 	// TransportSSE represents the Server-Sent Events transport mode.
 	TransportSSE TransportMode = "sse"
 	// TransportHTTPStream represents the HTTP streaming transport mode.
-	TransportHTTPStream TransportMode = "http-stream"
+	TransportHTTPStream TransportMode = "streamable-http"
 )
 
 func getTransportMode() (TransportMode, error) {
@@ -35,7 +35,7 @@ func getTransportMode() (TransportMode, error) {
 	case TransportSSE, TransportHTTPStream:
 		return TransportMode(mode), nil
 	default:
-		return "", fmt.Errorf("invalid MCP_TRANSPORT: %q (allowed: sse, http-stream)", mode)
+		return "", fmt.Errorf("invalid MCP_TRANSPORT: %q (allowed: sse, streamable-http)", mode)
 	}
 }
 
