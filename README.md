@@ -1,10 +1,13 @@
 # OSV MCP Server
 
-An MCP (Model Context Protocol) server that provides access to the [OSV (Open Source Vulnerabilities) database](https://osv.dev/).
+An MCP (Model Context Protocol) server that provides access to the
+[OSV (Open Source Vulnerabilities) database](https://osv.dev/).
 
 ## Overview
 
-This project implements an SSE-based MCP server that allows LLM-powered applications to query the OSV database for vulnerability information. The server provides tools for:
+This project implements an SSE-based MCP server that allows LLM-powered
+applications to query the OSV database for vulnerability information. The server
+provides tools for:
 
 1. Querying vulnerabilities for a specific package version or commit
 2. Batch querying vulnerabilities for multiple packages or commits
@@ -33,14 +36,16 @@ task build
 
 ### Running with ToolHive (Recommended)
 
-The easiest way to run the OSV MCP server is using [ToolHive](https://github.com/stacklok/toolhive), which provides secure, containerized deployment of MCP servers:
+The easiest way to run the OSV MCP server is using
+[ToolHive](https://github.com/stacklok/toolhive), which provides secure,
+containerized deployment of MCP servers:
 
 ```bash
 # Install ToolHive (if not already installed)
-# See: https://github.com/stacklok/toolhive#installation
+# See: https://docs.stacklok.com/toolhive/guides-cli/install
 
-# Enable auto-discovery to automatically configure supported clients
-thv config auto-discovery true
+# Register a supported client so ToolHive can auto-configure your environment
+thv client setup
 
 # Run the OSV MCP server (packaged as 'osv' in ToolHive)
 thv run osv
@@ -52,7 +57,8 @@ thv list
 thv registry info osv
 ```
 
-The server will be available to your MCP-compatible clients and can query the OSV database for vulnerability information.
+The server will be available to your MCP-compatible clients and can query the
+OSV database for vulnerability information.
 
 ### Running from Source
 
@@ -61,6 +67,7 @@ The server will be available to your MCP-compatible clients and can query the OS
 The server can be configured using environment variables:
 
 - `MCP_PORT`: The port number to run the server on (default: 8080)
+
   - Must be a valid integer between 0 and 65535
   - If invalid or not set, the server will use port 8080
 
@@ -69,6 +76,7 @@ The server can be configured using environment variables:
   - If invalid or not set, the server will use SSE transport mode
 
 Example:
+
 ```bash
 # Run on port 3000
 MCP_PORT=3000 ./build/osv-mcp-server
@@ -86,6 +94,7 @@ The server provides the following MCP tools:
 Query for vulnerabilities affecting a specific package version or commit.
 
 **Input Schema:**
+
 ```json
 {
   "type": "object",
@@ -119,6 +128,7 @@ Query for vulnerabilities affecting a specific package version or commit.
 Query for vulnerabilities affecting multiple packages or commits at once.
 
 **Input Schema:**
+
 ```json
 {
   "type": "object",
@@ -162,6 +172,7 @@ Query for vulnerabilities affecting multiple packages or commits at once.
 Get details for a specific vulnerability by ID.
 
 **Input Schema:**
+
 ```json
 {
   "type": "object",
@@ -244,8 +255,9 @@ task fmt
 
 ## Contributing
 
-We welcome contributions to this MCP server! If you'd like to contribute, please review
-the [CONTRIBUTING guide](./CONTRIBUTING.md) for details on how to get started.
+We welcome contributions to this MCP server! If you'd like to contribute, please
+review the [CONTRIBUTING guide](./CONTRIBUTING.md) for details on how to get
+started.
 
 If you run into a bug or have a feature request, please
 [open an issue](https://github.com/StacklokLabs/osv-mcp/issues) in the
@@ -254,4 +266,5 @@ repository or join us in the `#mcp-servers` channel on our
 
 ## License
 
-This project is licensed under the Apache v2 License - see the LICENSE file for details.
+This project is licensed under the Apache v2 License - see the LICENSE file for
+details.
