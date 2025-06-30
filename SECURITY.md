@@ -1,7 +1,7 @@
 # Security Policy
 
-The StacklokLabs community take security seriously! We appreciate your efforts to
-disclose your findings responsibly and will make every effort to acknowledge
+The StacklokLabs community take security seriously! We appreciate your efforts
+to disclose your findings responsibly and will make every effort to acknowledge
 your contributions.
 
 ## Reporting a vulnerability
@@ -46,8 +46,8 @@ with the fix and release process.
 
 ## Patch, release, and public communication
 
-For each vulnerability, the StacklokLabs security team will coordinate to create the
-fix and release, and notify the rest of the community.
+For each vulnerability, the StacklokLabs security team will coordinate to create
+the fix and release, and notify the rest of the community.
 
 All of the timelines below are suggestions and assume a Private Disclosure.
 
@@ -137,7 +137,7 @@ realistic timeline can be communicated to users.
   version. An announcement template is available below. The announcement will be
   sent to the following channels:
 - A link to fix will be posted to the
-  [Stacklok Discord Server](https://discord.gg/stacklok) in the #osv-mcp
+  [Stacklok Discord Server](https://discord.gg/stacklok) in the #mcp-servers
   channel.
 
 ## Retrospective
