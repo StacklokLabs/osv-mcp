@@ -1,0 +1,84 @@
+version: '3'
+
+vars:
+  BINARY_NAME: osv-mcp-server
+  BUILD_DIR: build
+  MAIN_PACKAGE: ./cmd/server
+  KO_DOCKER_REPO: stackloklabs/osv-mcp
+
+tasks:
+  default:
+    desc: Run tests and build the application
+    deps: [test, build]
+
+  build:
+    desc: Build the application
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+
+  run:
+    desc: Run the application
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} {{.CLI_ARGS}}
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  clean:
+    desc: Clean the build directory
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+
+  fmt:
+    desc: Format the code
+    cmds:
+      - go fmt ./...
+      - golangci-lint run --fix
+
+  lint:
+    desc: Lint the code
+    cmds:
+      - golangci-lint run
+
+  deps:
+    desc: Update dependencies
+    cmds:
+      - go mod tidy
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - go mod download
+
+  ko-build:
+    desc: Build container image with ko
+    env:
+      KO_DOCKER_REPO: '{{.KO_DOCKER_REPO}}'
+    cmds:
+      - ko build --platform=linux/amd64 --base-import-paths {{.MAIN_PACKAGE}} -t latest
+
+  ko-run:
+    desc: Run container built with ko
+    env:
+      KO_DOCKER_REPO: '{{.KO_DOCKER_REPO}}'
+    cmds:
+      - ko run --platform=linux/amd64 --base-import-paths {{.MAIN_PACKAGE}} -- {{.CLI_ARGS}}
+
+  ko-publish:
+    desc: Publish container image with ko
+    env:
+      KO_DOCKER_REPO: '{{.KO_DOCKER_REPO}}'
+    cmds:
+      - ko publish --platform=linux/amd64 --base-import-paths {{.MAIN_PACKAGE}} -t latest
+
+  all:
+    desc: Run all tasks (fmt, lint, test, build)
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: build
