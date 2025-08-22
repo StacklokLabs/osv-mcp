@@ -1,4 +1,5 @@
 # OSV MCP Server
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/StacklokLabs/osv-mcp)](https://archestra.ai/mcp-catalog/stackloklabs__osv-mcp)
 
 An MCP (Model Context Protocol) server that provides access to the
 [OSV (Open Source Vulnerabilities) database](https://osv.dev/).
