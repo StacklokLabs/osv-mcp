@@ -37,12 +37,12 @@ tasks:
     desc: Format the code
     cmds:
       - go fmt ./...
-      - golangci-lint run --fix
+      - golangci-lint run --allow-parallel-runners --fix
 
   lint:
     desc: Lint the code
     cmds:
-      - golangci-lint run
+      - golangci-lint run --allow-parallel-runners
 
   deps:
     desc: Update dependencies
