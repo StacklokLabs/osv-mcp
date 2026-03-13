@@ -42,12 +42,20 @@ func NewServer(opts ...ServerOption) *Server {
 
 	mcpServer := server.NewMCPServer(ServerName, ServerVersion)
 
+	// All tools are read-only queries against the OSV API.
+	readOnlyAnnotations := mcp.ToolAnnotation{
+		Title:           "",
+		ReadOnlyHint:    mcp.ToBoolPtr(true),
+		DestructiveHint: mcp.ToBoolPtr(false),
+		IdempotentHint:  mcp.ToBoolPtr(true),
+		OpenWorldHint:   mcp.ToBoolPtr(true),
+	}
+
 	// Register tools
-	mcpServer.AddTool(
-		mcp.NewToolWithRawSchema(
-			"query_vulnerability",
-			"Query for vulnerabilities affecting a specific package version or commit",
-			json.RawMessage(`{
+	queryVulnTool := mcp.NewToolWithRawSchema(
+		"query_vulnerability",
+		"Query for vulnerabilities affecting a specific package version or commit",
+		json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"commit": {
@@ -73,15 +81,14 @@ func NewServer(opts ...ServerOption) *Server {
 				},
 				"required": []
 			}`),
-		),
-		s.handleQueryVulnerability,
 	)
+	queryVulnTool.Annotations = readOnlyAnnotations
+	mcpServer.AddTool(queryVulnTool, s.handleQueryVulnerability)
 
-	mcpServer.AddTool(
-		mcp.NewToolWithRawSchema(
-			"query_vulnerabilities_batch",
-			"Query for vulnerabilities affecting multiple packages or commits at once",
-			json.RawMessage(`{
+	queryBatchTool := mcp.NewToolWithRawSchema(
+		"query_vulnerabilities_batch",
+		"Query for vulnerabilities affecting multiple packages or commits at once",
+		json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"queries": {
@@ -116,15 +123,14 @@ func NewServer(opts ...ServerOption) *Server {
 				},
 				"required": ["queries"]
 			}`),
-		),
-		s.handleQueryVulnerabilitiesBatch,
 	)
+	queryBatchTool.Annotations = readOnlyAnnotations
+	mcpServer.AddTool(queryBatchTool, s.handleQueryVulnerabilitiesBatch)
 
-	mcpServer.AddTool(
-		mcp.NewToolWithRawSchema(
-			"get_vulnerability",
-			"Get details for a specific vulnerability by ID",
-			json.RawMessage(`{
+	getVulnTool := mcp.NewToolWithRawSchema(
+		"get_vulnerability",
+		"Get details for a specific vulnerability by ID",
+		json.RawMessage(`{
 				"type": "object",
 				"properties": {
 					"id": {
@@ -134,9 +140,9 @@ func NewServer(opts ...ServerOption) *Server {
 				},
 				"required": ["id"]
 			}`),
-		),
-		s.handleGetVulnerability,
 	)
+	getVulnTool.Annotations = readOnlyAnnotations
+	mcpServer.AddTool(getVulnTool, s.handleGetVulnerability)
 
 	s.mcpServer = mcpServer
 	return s
