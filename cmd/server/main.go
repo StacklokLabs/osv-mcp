@@ -49,10 +49,10 @@ func getMCPServerPort() string {
 			if portNum >= 0 && portNum <= 65535 {
 				port = envPort
 			} else {
-				log.Printf("Invalid MCP_PORT value: %s (must be between 0 and 65535), using default port 8080", envPort)
+				log.Printf("Invalid MCP_PORT value: %d (must be between 0 and 65535), using default port 8080", portNum)
 			}
 		} else {
-			log.Printf("Invalid MCP_PORT value: %s (must be a valid number), using default port 8080", envPort)
+			log.Print("Invalid MCP_PORT value (must be a valid number), using default port 8080")
 		}
 	}
 	return port
