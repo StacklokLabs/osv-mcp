@@ -14,6 +14,10 @@ provides tools for:
 2. Batch querying vulnerabilities for multiple packages or commits
 3. Getting detailed information about a specific vulnerability by ID
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/stackloklabs-osv-mcp).
+
 ## Installation
 
 ### Prerequisites
