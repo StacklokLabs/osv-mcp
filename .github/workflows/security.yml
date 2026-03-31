@@ -6,13 +6,17 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Run weekly on Sundays at midnight
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   grype-scan:
     name: Grype Security Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
 
       - name: Run Grype vulnerability scanner
         id: grype-scan
@@ -24,7 +28,7 @@ jobs:
           severity-cutoff: "high"
 
       - name: Upload scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@d4b3ca9fa7f69d38bfcd667bdc45bc373d16277e # v4
         if: always()
         with:
           sarif_file: ${{ steps.grype-scan.outputs.sarif }}
