@@ -5,8 +5,17 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
+  security:
+    name: Security Scan
+    uses: ./.github/workflows/security.yml
+
   release:
+    needs: security
     name: Release Container
     runs-on: ubuntu-latest
     permissions:

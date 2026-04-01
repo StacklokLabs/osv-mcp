@@ -8,8 +8,13 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
+  security:
+    name: Security Scan
+    uses: ./.github/workflows/security.yml
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
