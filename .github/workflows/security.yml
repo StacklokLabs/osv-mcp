@@ -1,8 +1,7 @@
 name: Security Scan
 
 on:
-  pull_request:
-    branches: [ main ]
+  workflow_call:
   schedule:
     - cron: '0 0 * * 0'  # Run weekly on Sundays at midnight
 
@@ -11,25 +10,73 @@ permissions:
   security-events: write
 
 jobs:
-  grype-scan:
-    name: Grype Security Scan
+  filesystem-scan:
+    name: Grype Filesystem Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Checkout code
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Run Grype vulnerability scanner
-        id: grype-scan
-        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
-        with:
-          path: "."
-          only-fixed: true
-          output-format: "sarif"
-          severity-cutoff: "high"
+    - name: Run Grype vulnerability scanner in fs mode
+      id: grype-scan
+      uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+      with:
+        path: "."
+        output-format: "sarif"
+        severity-cutoff: "medium"
+        only-fixed: true
+        fail-build: true
 
-      - name: Upload scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4
-        if: always()
-        with:
-          sarif_file: ${{ steps.grype-scan.outputs.sarif }}
-          category: "grype"
+    - name: Upload scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@d4b3ca9fa7f69d38bfcd667bdc45bc373d16277e # v4
+      if: always()
+      with:
+        sarif_file: ${{ steps.grype-scan.outputs.sarif }}
+        category: "grype-filesystem"
+
+  image-scan:
+    name: Grype Image Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+    - name: Set up Go
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Setup Ko
+      uses: ko-build/setup-ko@d006021bd0c28d1ce33a07e7943d48b079944c8d # v0.9
+
+    - name: Build image with Ko
+      id: ko-build
+      env:
+        KO_DOCKER_REPO: ko.local
+        VERSION: "0.0.0-security-scan"
+        CREATION_TIME: "1970-01-01T00:00:00Z"
+      run: |
+        IMAGE=$(ko build --bare --local --sbom=none --tags security-scan --platform=linux/amd64 ./cmd/server)
+        echo "IMAGE=$IMAGE" >> $GITHUB_OUTPUT
+
+    - name: Run Grype vulnerability scanner on image
+      id: grype-scan
+      uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2 # v7.4.0
+      with:
+        image: ${{ steps.ko-build.outputs.IMAGE }}
+        output-format: "sarif"
+        severity-cutoff: "medium"
+        only-fixed: true
+        fail-build: true
+
+    - name: Upload scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@d4b3ca9fa7f69d38bfcd667bdc45bc373d16277e # v4
+      if: always()
+      with:
+        sarif_file: ${{ steps.grype-scan.outputs.sarif }}
+        category: "grype-image"
