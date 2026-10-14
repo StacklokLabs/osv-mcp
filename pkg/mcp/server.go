@@ -24,6 +24,16 @@ const (
 	ServerPort = "8080"
 )
 
+// Tool argument names shared by the query tools' input schemas and handlers.
+const (
+	argCommit      = "commit"
+	argVersion     = "version"
+	argPackageName = "package_name"
+	argEcosystem   = "ecosystem"
+	argPurl        = "purl"
+	argID          = "id"
+)
+
 // Server is an MCP server that provides OSV vulnerability information
 type Server struct {
 	mcpServer *server.MCPServer
@@ -180,11 +190,11 @@ func (s *Server) ServeHTTPStream(addr string) error {
 
 // handleQueryVulnerability handles the query_vulnerability tool
 func (s *Server) handleQueryVulnerability(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	commit := mcp.ParseString(request, "commit", "")
-	version := mcp.ParseString(request, "version", "")
-	packageName := mcp.ParseString(request, "package_name", "")
-	ecosystem := mcp.ParseString(request, "ecosystem", "")
-	purl := mcp.ParseString(request, "purl", "")
+	commit := mcp.ParseString(request, argCommit, "")
+	version := mcp.ParseString(request, argVersion, "")
+	packageName := mcp.ParseString(request, argPackageName, "")
+	ecosystem := mcp.ParseString(request, argEcosystem, "")
+	purl := mcp.ParseString(request, argPurl, "")
 
 	// Validate input
 	if commit != "" && version != "" {
@@ -251,11 +261,11 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 			return mcp.NewToolResultError(fmt.Sprintf("Invalid query at index %d", i)), nil
 		}
 
-		commit, _ := queryMap["commit"].(string)
-		version, _ := queryMap["version"].(string)
-		packageName, _ := queryMap["package_name"].(string)
-		ecosystem, _ := queryMap["ecosystem"].(string)
-		purl, _ := queryMap["purl"].(string)
+		commit, _ := queryMap[argCommit].(string)
+		version, _ := queryMap[argVersion].(string)
+		packageName, _ := queryMap[argPackageName].(string)
+		ecosystem, _ := queryMap[argEcosystem].(string)
+		purl, _ := queryMap[argPurl].(string)
 
 		// Validate input
 		if commit != "" && version != "" {
@@ -305,7 +315,7 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 
 // handleGetVulnerability handles the get_vulnerability tool
 func (s *Server) handleGetVulnerability(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	id := mcp.ParseString(request, "id", "")
+	id := mcp.ParseString(request, argID, "")
 	if id == "" {
 		return mcp.NewToolResultError("Vulnerability ID is required"), nil
 	}
