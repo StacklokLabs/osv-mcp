@@ -13,6 +13,12 @@ import (
 	"github.com/StacklokLabs/osv-mcp/pkg/osv"
 )
 
+const (
+	testVulnID      = "TEST-2023-001"
+	testVulnSummary = "Test vulnerability"
+	testEcosystem   = "npm"
+)
+
 // mockOSVClient is a mock implementation of the OSV client for testing
 type mockOSVClient struct {
 	queryFunc            func(ctx context.Context, req osv.QueryRequest) (*osv.QueryResponse, error)
@@ -40,8 +46,8 @@ func newMockOSVClient() *mockOSVClient {
 			return &osv.QueryResponse{
 				Vulns: []osv.Vulnerability{
 					{
-						ID:       "TEST-2023-001",
-						Summary:  "Test vulnerability",
+						ID:       testVulnID,
+						Summary:  testVulnSummary,
 						Modified: time.Now(),
 					},
 				},
@@ -57,7 +63,7 @@ func newMockOSVClient() *mockOSVClient {
 							Modified time.Time `json:"modified"`
 						}{
 							{
-								ID:       "TEST-2023-001",
+								ID:       testVulnID,
 								Modified: time.Now(),
 							},
 						},
@@ -68,8 +74,8 @@ func newMockOSVClient() *mockOSVClient {
 		getVulnerabilityFunc: func(ctx context.Context, id string) (*osv.Vulnerability, error) {
 			_, _ = ctx, id
 			return &osv.Vulnerability{
-				ID:       "TEST-2023-001",
-				Summary:  "Test vulnerability",
+				ID:       testVulnID,
+				Summary:  testVulnSummary,
 				Modified: time.Now(),
 			}, nil
 		},
@@ -96,7 +102,7 @@ func TestHandleQueryVulnerability(t *testing.T) {
 
 	// Set up expected query parameters
 	expectedPackageName := "test-package"
-	expectedEcosystem := "npm"
+	expectedEcosystem := testEcosystem
 	expectedVersion := "1.0.0"
 
 	// Override query function to check parameters
@@ -109,8 +115,8 @@ func TestHandleQueryVulnerability(t *testing.T) {
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:       "TEST-2023-001",
-					Summary:  "Test vulnerability",
+					ID:       testVulnID,
+					Summary:  testVulnSummary,
 					Modified: time.Now(),
 				},
 			},
@@ -123,9 +129,9 @@ func TestHandleQueryVulnerability(t *testing.T) {
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
-		"package_name": expectedPackageName,
-		"ecosystem":    expectedEcosystem,
-		"version":      expectedVersion,
+		argPackageName: expectedPackageName,
+		argEcosystem:   expectedEcosystem,
+		argVersion:     expectedVersion,
 	}
 
 	// Call handler
@@ -147,8 +153,8 @@ func TestHandleQueryVulnerability(t *testing.T) {
 
 	// Check response
 	assert.Len(t, response.Vulns, 1)
-	assert.Equal(t, "TEST-2023-001", response.Vulns[0].ID)
-	assert.Equal(t, "Test vulnerability", response.Vulns[0].Summary)
+	assert.Equal(t, testVulnID, response.Vulns[0].ID)
+	assert.Equal(t, testVulnSummary, response.Vulns[0].Summary)
 }
 
 func TestHandleQueryVulnerabilityWithPURL(t *testing.T) {
@@ -168,8 +174,8 @@ func TestHandleQueryVulnerabilityWithPURL(t *testing.T) {
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:       "TEST-2023-001",
-					Summary:  "Test vulnerability",
+					ID:       testVulnID,
+					Summary:  testVulnSummary,
 					Modified: time.Now(),
 				},
 			},
@@ -182,7 +188,7 @@ func TestHandleQueryVulnerabilityWithPURL(t *testing.T) {
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
-		"purl": expectedPURL,
+		argPurl: expectedPURL,
 	}
 
 	// Call handler
@@ -211,8 +217,8 @@ func TestHandleQueryVulnerabilityWithCommit(t *testing.T) {
 		return &osv.QueryResponse{
 			Vulns: []osv.Vulnerability{
 				{
-					ID:       "TEST-2023-001",
-					Summary:  "Test vulnerability",
+					ID:       testVulnID,
+					Summary:  testVulnSummary,
 					Modified: time.Now(),
 				},
 			},
@@ -225,7 +231,7 @@ func TestHandleQueryVulnerabilityWithCommit(t *testing.T) {
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
-		"commit": expectedCommit,
+		argCommit: expectedCommit,
 	}
 
 	// Call handler
@@ -247,10 +253,10 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 		_, _ = ctx, req
 		assert.Len(t, req.Queries, 2)
 		assert.Equal(t, "test-package-1", req.Queries[0].Package.Name)
-		assert.Equal(t, "npm", req.Queries[0].Package.Ecosystem)
+		assert.Equal(t, testEcosystem, req.Queries[0].Package.Ecosystem)
 		assert.Equal(t, "1.0.0", req.Queries[0].Version)
 		assert.Equal(t, "test-package-2", req.Queries[1].Package.Name)
-		assert.Equal(t, "npm", req.Queries[1].Package.Ecosystem)
+		assert.Equal(t, testEcosystem, req.Queries[1].Package.Ecosystem)
 		assert.Equal(t, "2.0.0", req.Queries[1].Version)
 
 		return &osv.QueryBatchResponse{
@@ -261,7 +267,7 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 						Modified time.Time `json:"modified"`
 					}{
 						{
-							ID:       "TEST-2023-001",
+							ID:       testVulnID,
 							Modified: time.Now(),
 						},
 					},
@@ -289,14 +295,14 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 	request.Params.Arguments = map[string]interface{}{
 		"queries": []interface{}{
 			map[string]interface{}{
-				"package_name": "test-package-1",
-				"ecosystem":    "npm",
-				"version":      "1.0.0",
+				argPackageName: "test-package-1",
+				argEcosystem:   testEcosystem,
+				argVersion:     "1.0.0",
 			},
 			map[string]interface{}{
-				"package_name": "test-package-2",
-				"ecosystem":    "npm",
-				"version":      "2.0.0",
+				argPackageName: "test-package-2",
+				argEcosystem:   testEcosystem,
+				argVersion:     "2.0.0",
 			},
 		},
 	}
@@ -321,7 +327,7 @@ func TestHandleQueryVulnerabilitiesBatch(t *testing.T) {
 	// Check response
 	assert.Len(t, response.Results, 2)
 	assert.Len(t, response.Results[0].Vulns, 1)
-	assert.Equal(t, "TEST-2023-001", response.Results[0].Vulns[0].ID)
+	assert.Equal(t, testVulnID, response.Results[0].Vulns[0].ID)
 	assert.Len(t, response.Results[1].Vulns, 1)
 	assert.Equal(t, "TEST-2023-002", response.Results[1].Vulns[0].ID)
 }
@@ -331,7 +337,7 @@ func TestHandleGetVulnerability(t *testing.T) {
 	mockClient := newMockOSVClient()
 
 	// Set up expected query parameters
-	expectedID := "TEST-2023-001"
+	expectedID := testVulnID
 
 	// Override get vulnerability function to check parameters
 	mockClient.getVulnerabilityFunc = func(ctx context.Context, id string) (*osv.Vulnerability, error) {
@@ -340,7 +346,7 @@ func TestHandleGetVulnerability(t *testing.T) {
 
 		return &osv.Vulnerability{
 			ID:       expectedID,
-			Summary:  "Test vulnerability",
+			Summary:  testVulnSummary,
 			Details:  "This is a test vulnerability",
 			Modified: time.Now(),
 		}, nil
@@ -352,7 +358,7 @@ func TestHandleGetVulnerability(t *testing.T) {
 	// Create tool request
 	request := mcp.CallToolRequest{}
 	request.Params.Arguments = map[string]interface{}{
-		"id": expectedID,
+		argID: expectedID,
 	}
 
 	// Call handler
@@ -374,6 +380,6 @@ func TestHandleGetVulnerability(t *testing.T) {
 
 	// Check response
 	assert.Equal(t, expectedID, vuln.ID)
-	assert.Equal(t, "Test vulnerability", vuln.Summary)
+	assert.Equal(t, testVulnSummary, vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
 }
