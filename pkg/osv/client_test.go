@@ -12,6 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testVulnID      = "TEST-2023-001"
+	testVulnSummary = "Test vulnerability"
+	testEcosystem   = "npm"
+)
+
 func TestQuery(t *testing.T) {
 	// Setup test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +33,7 @@ func TestQuery(t *testing.T) {
 
 		// Check request fields
 		assert.Equal(t, "test-package", req.Package.Name)
-		assert.Equal(t, "npm", req.Package.Ecosystem)
+		assert.Equal(t, testEcosystem, req.Package.Ecosystem)
 		assert.Equal(t, "1.0.0", req.Version)
 
 		// Return mock response
@@ -84,7 +90,7 @@ func TestQuery(t *testing.T) {
 		Version: "1.0.0",
 		Package: Package{
 			Name:      "test-package",
-			Ecosystem: "npm",
+			Ecosystem: testEcosystem,
 		},
 	}
 
@@ -96,8 +102,8 @@ func TestQuery(t *testing.T) {
 	// Check response
 	assert.Len(t, resp.Vulns, 1)
 	vuln := resp.Vulns[0]
-	assert.Equal(t, "TEST-2023-001", vuln.ID)
-	assert.Equal(t, "Test vulnerability", vuln.Summary)
+	assert.Equal(t, testVulnID, vuln.ID)
+	assert.Equal(t, testVulnSummary, vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
 
 	expectedModified, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
@@ -109,7 +115,7 @@ func TestQuery(t *testing.T) {
 
 	assert.Len(t, vuln.Affected, 1)
 	assert.Equal(t, "test-package", vuln.Affected[0].Package.Name)
-	assert.Equal(t, "npm", vuln.Affected[0].Package.Ecosystem)
+	assert.Equal(t, testEcosystem, vuln.Affected[0].Package.Ecosystem)
 }
 
 func TestQueryBatch(t *testing.T) {
@@ -165,14 +171,14 @@ func TestQueryBatch(t *testing.T) {
 				Version: "1.0.0",
 				Package: Package{
 					Name:      "test-package-1",
-					Ecosystem: "npm",
+					Ecosystem: testEcosystem,
 				},
 			},
 			{
 				Version: "2.0.0",
 				Package: Package{
 					Name:      "test-package-2",
-					Ecosystem: "npm",
+					Ecosystem: testEcosystem,
 				},
 			},
 		},
@@ -187,7 +193,7 @@ func TestQueryBatch(t *testing.T) {
 	assert.Len(t, resp.Results, 2)
 
 	assert.Len(t, resp.Results[0].Vulns, 1)
-	assert.Equal(t, "TEST-2023-001", resp.Results[0].Vulns[0].ID)
+	assert.Equal(t, testVulnID, resp.Results[0].Vulns[0].ID)
 
 	expectedModified1, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
 	assert.Equal(t, expectedModified1, resp.Results[0].Vulns[0].Modified)
@@ -252,13 +258,13 @@ func TestGetVulnerability(t *testing.T) {
 	client := NewClient(WithBaseURL(server.URL + "/v1"))
 
 	// Execute get vulnerability
-	vuln, err := client.GetVulnerability(context.Background(), "TEST-2023-001")
+	vuln, err := client.GetVulnerability(context.Background(), testVulnID)
 	require.NoError(t, err)
 	require.NotNil(t, vuln)
 
 	// Check response
-	assert.Equal(t, "TEST-2023-001", vuln.ID)
-	assert.Equal(t, "Test vulnerability", vuln.Summary)
+	assert.Equal(t, testVulnID, vuln.ID)
+	assert.Equal(t, testVulnSummary, vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
 
 	expectedModified, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
@@ -270,5 +276,5 @@ func TestGetVulnerability(t *testing.T) {
 
 	assert.Len(t, vuln.Affected, 1)
 	assert.Equal(t, "test-package", vuln.Affected[0].Package.Name)
-	assert.Equal(t, "npm", vuln.Affected[0].Package.Ecosystem)
+	assert.Equal(t, testEcosystem, vuln.Affected[0].Package.Ecosystem)
 }
