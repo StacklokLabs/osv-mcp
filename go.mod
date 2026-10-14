@@ -4,6 +4,7 @@ go 1.27
 
 require (
 	github.com/mark3labs/mcp-go v1.2.1
+	github.com/mark3labs/mcp-go/v2 v2.0.0
 	github.com/stretchr/testify v1.12.1
 )
 
