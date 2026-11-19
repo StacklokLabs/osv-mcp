@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -14,6 +15,12 @@ import (
 	"github.com/StacklokLabs/osv-mcp/pkg/mcp"
 	"github.com/StacklokLabs/osv-mcp/pkg/osv"
 )
+
+// devVersion is reported when no release version is available.
+const devVersion = "dev"
+
+// version is set at build time with -X main.version=<version>. See .ko.yaml.
+var version = devVersion
 
 // TransportMode defines the type for transport modes used by the MCP server.
 type TransportMode string
@@ -58,6 +65,19 @@ func getMCPServerPort() string {
 	return port
 }
 
+// resolveVersion returns the server version to report to clients. It prefers
+// the version set by ldflags. Otherwise it falls back to the module version
+// recorded by `go install module@version`, and finally to "dev".
+func resolveVersion(ldflagsVersion string, readBuildInfo func() (*debug.BuildInfo, bool)) string {
+	if ldflagsVersion != "" && ldflagsVersion != devVersion {
+		return ldflagsVersion
+	}
+	if info, ok := readBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return devVersion
+}
+
 func main() {
 	// Get port from environment variable or use default
 	port := getMCPServerPort()
@@ -77,6 +97,7 @@ func main() {
 	// Create MCP server
 	mcpServer := mcp.NewServer(
 		mcp.WithOSVClient(osvClient),
+		mcp.WithVersion(resolveVersion(version, debug.ReadBuildInfo)),
 	)
 
 	// Handle signals for graceful shutdown
