@@ -28,7 +28,7 @@ const (
 func getTransportMode() (TransportMode, error) {
 	mode := strings.ToLower(strings.TrimSpace(os.Getenv("MCP_TRANSPORT")))
 	if mode == "" {
-		return TransportSSE, nil // default
+		return TransportHTTPStream, nil // default
 	}
 
 	switch TransportMode(mode) {
