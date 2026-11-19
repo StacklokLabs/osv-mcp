@@ -6,9 +6,9 @@ An MCP (Model Context Protocol) server that provides access to the
 
 ## Overview
 
-This project implements an SSE-based MCP server that allows LLM-powered
-applications to query the OSV database for vulnerability information. The server
-provides tools for:
+This project implements an MCP server that allows LLM-powered applications to
+query the OSV database for vulnerability information. The server provides tools
+for:
 
 1. Querying vulnerabilities for a specific package version or commit
 2. Batch querying vulnerabilities for multiple packages or commits
@@ -72,9 +72,16 @@ The server can be configured using environment variables:
   - Must be a valid integer between 0 and 65535
   - If invalid or not set, the server will use port 8080
 
-- `MCP_TRANSPORT`: The transport mode for the server (default: `sse`)
-  - Supported values: `sse`, `streamable-http`
-  - If invalid or not set, the server will use SSE transport mode
+- `MCP_TRANSPORT`: The transport mode for the server (default:
+  `streamable-http`)
+  - Supported values: `streamable-http`, `sse`
+  - `streamable-http` serves MCP at `/mcp`. The server is stateless and doesn't
+    issue an `Mcp-Session-Id`. It supports MCP protocol version `2026-07-28` and
+    earlier versions back to `2024-11-05`.
+  - `sse` serves the legacy HTTP+SSE transport at `/sse` and `/message`. The MCP
+    specification deprecates this transport, so use `streamable-http` for new
+    deployments.
+  - If set to any other value, the server exits with an error
 
 Example:
 
@@ -137,6 +144,7 @@ Query for vulnerabilities affecting multiple packages or commits at once.
     "queries": {
       "type": "array",
       "description": "Array of query objects",
+      "minItems": 1,
       "items": {
         "type": "object",
         "properties": {

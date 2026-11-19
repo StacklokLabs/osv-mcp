@@ -4,6 +4,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -53,12 +54,14 @@ func NewServer(opts ...ServerOption) *Server {
 	mcpServer := server.NewMCPServer(ServerName, ServerVersion)
 
 	// All tools are read-only queries against the OSV API.
-	readOnlyAnnotations := mcp.ToolAnnotation{
-		Title:           "",
-		ReadOnlyHint:    mcp.ToBoolPtr(true),
-		DestructiveHint: mcp.ToBoolPtr(false),
-		IdempotentHint:  mcp.ToBoolPtr(true),
-		OpenWorldHint:   mcp.ToBoolPtr(true),
+	readOnlyAnnotations := func(title string) mcp.ToolAnnotation {
+		return mcp.ToolAnnotation{
+			Title:           title,
+			ReadOnlyHint:    mcp.ToBoolPtr(true),
+			DestructiveHint: mcp.ToBoolPtr(false),
+			IdempotentHint:  mcp.ToBoolPtr(true),
+			OpenWorldHint:   mcp.ToBoolPtr(true),
+		}
 	}
 
 	// Register tools
@@ -92,7 +95,8 @@ func NewServer(opts ...ServerOption) *Server {
 				"required": []
 			}`),
 	)
-	queryVulnTool.Annotations = readOnlyAnnotations
+	queryVulnTool.Title = "Query Vulnerability"
+	queryVulnTool.Annotations = readOnlyAnnotations(queryVulnTool.Title)
 	mcpServer.AddTool(queryVulnTool, s.handleQueryVulnerability)
 
 	queryBatchTool := mcp.NewToolWithRawSchema(
@@ -104,6 +108,7 @@ func NewServer(opts ...ServerOption) *Server {
 					"queries": {
 						"type": "array",
 						"description": "Array of query objects",
+						"minItems": 1,
 						"items": {
 							"type": "object",
 							"properties": {
@@ -134,7 +139,8 @@ func NewServer(opts ...ServerOption) *Server {
 				"required": ["queries"]
 			}`),
 	)
-	queryBatchTool.Annotations = readOnlyAnnotations
+	queryBatchTool.Title = "Query Vulnerabilities (Batch)"
+	queryBatchTool.Annotations = readOnlyAnnotations(queryBatchTool.Title)
 	mcpServer.AddTool(queryBatchTool, s.handleQueryVulnerabilitiesBatch)
 
 	getVulnTool := mcp.NewToolWithRawSchema(
@@ -151,7 +157,8 @@ func NewServer(opts ...ServerOption) *Server {
 				"required": ["id"]
 			}`),
 	)
-	getVulnTool.Annotations = readOnlyAnnotations
+	getVulnTool.Title = "Get Vulnerability"
+	getVulnTool.Annotations = readOnlyAnnotations(getVulnTool.Title)
 	mcpServer.AddTool(getVulnTool, s.handleGetVulnerability)
 
 	s.mcpServer = mcpServer
@@ -170,6 +177,7 @@ func WithOSVClient(client osv.OSVClient) ServerOption {
 
 // ServeSSE starts the MCP server using SSE
 func (s *Server) ServeSSE(addr string) error {
+	log.Printf("WARNING: the SSE transport is deprecated by the MCP specification; use streamable-http instead")
 	log.Printf("Starting OSV MCP server (SSE) on %s", addr)
 	sseServer := server.NewSSEServer(s.mcpServer)
 	return sseServer.Start(addr)
@@ -180,8 +188,11 @@ func (s *Server) ServeHTTPStream(addr string) error {
 	log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", addr)
 
 	httpSrv := server.NewStreamableHTTPServer(s.mcpServer,
-		server.WithEndpointPath("/mcp/"),
-		server.WithStateLess(true), // stateless mode
+		server.WithEndpointPath("/mcp"),
+		// Every tool call is an independent OSV API query, so there's no
+		// session state to keep. Stateless mode matches MCP 2026-07-28,
+		// which removed protocol-level sessions.
+		server.WithStateLess(true),
 		server.WithHeartbeatInterval(30*time.Second),
 	)
 
@@ -196,34 +207,9 @@ func (s *Server) handleQueryVulnerability(ctx context.Context, request mcp.CallT
 	ecosystem := mcp.ParseString(request, argEcosystem, "")
 	purl := mcp.ParseString(request, argPurl, "")
 
-	// Validate input
-	if commit != "" && version != "" {
-		return mcp.NewToolResultError("Both commit and version cannot be specified"), nil
-	}
-
-	if purl != "" && (packageName != "" || ecosystem != "") {
-		return mcp.NewToolResultError("If purl is specified, package_name and ecosystem should not be specified"), nil
-	}
-
-	if purl == "" && (packageName == "" || ecosystem == "") && commit == "" {
-		return mcp.NewToolResultError("Either purl, or both package_name and ecosystem, or commit must be specified"), nil
-	}
-
-	// Create query request
-	queryReq := osv.QueryRequest{
-		Commit:  commit,
-		Version: version,
-	}
-
-	if purl != "" {
-		queryReq.Package = osv.Package{
-			PURL: purl,
-		}
-	} else if packageName != "" && ecosystem != "" {
-		queryReq.Package = osv.Package{
-			Name:      packageName,
-			Ecosystem: ecosystem,
-		}
+	queryReq, err := buildQueryRequest(commit, version, packageName, ecosystem, purl)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	// Query OSV API
@@ -252,6 +238,9 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 	if !ok {
 		return mcp.NewToolResultError("Invalid 'queries' parameter: must be array"), nil
 	}
+	if len(queriesRaw) == 0 {
+		return mcp.NewToolResultError("Invalid 'queries' parameter: must contain at least one query"), nil
+	}
 
 	// Convert queries to QueryRequest objects
 	var queries []osv.QueryRequest
@@ -267,32 +256,9 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 		ecosystem, _ := queryMap[argEcosystem].(string)
 		purl, _ := queryMap[argPurl].(string)
 
-		// Validate input
-		if commit != "" && version != "" {
-			return mcp.NewToolResultError(fmt.Sprintf("Both commit and version cannot be specified in query %d", i)), nil
-		}
-
-		if purl != "" && (packageName != "" || ecosystem != "") {
-			return mcp.NewToolResultError(
-				fmt.Sprintf("If purl is specified, package_name and ecosystem should not be specified in query %d", i),
-			), nil
-		}
-
-		// Create query request
-		queryReq := osv.QueryRequest{
-			Commit:  commit,
-			Version: version,
-		}
-
-		if purl != "" {
-			queryReq.Package = osv.Package{
-				PURL: purl,
-			}
-		} else if packageName != "" && ecosystem != "" {
-			queryReq.Package = osv.Package{
-				Name:      packageName,
-				Ecosystem: ecosystem,
-			}
+		queryReq, err := buildQueryRequest(commit, version, packageName, ecosystem, purl)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("%v in query %d", err, i)), nil
 		}
 
 		queries = append(queries, queryReq)
@@ -311,6 +277,32 @@ func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mc
 	}
 
 	return mcp.NewToolResultText(string(result)), nil
+}
+
+// buildQueryRequest validates a single query's arguments and converts them to
+// an OSV query request. The same rules apply to query_vulnerability and to
+// each entry of query_vulnerabilities_batch.
+func buildQueryRequest(commit, version, packageName, ecosystem, purl string) (osv.QueryRequest, error) {
+	if commit != "" && version != "" {
+		return osv.QueryRequest{}, errors.New("both commit and version cannot be specified")
+	}
+	if purl != "" && (packageName != "" || ecosystem != "") {
+		return osv.QueryRequest{}, errors.New("if purl is specified, package_name and ecosystem should not be specified")
+	}
+	if purl == "" && (packageName == "" || ecosystem == "") && commit == "" {
+		return osv.QueryRequest{}, errors.New("either purl, or both package_name and ecosystem, or commit must be specified")
+	}
+
+	req := osv.QueryRequest{
+		Commit:  commit,
+		Version: version,
+	}
+	if purl != "" {
+		req.Package = osv.Package{PURL: purl}
+	} else if packageName != "" && ecosystem != "" {
+		req.Package = osv.Package{Name: packageName, Ecosystem: ecosystem}
+	}
+	return req, nil
 }
 
 // handleGetVulnerability handles the get_vulnerability tool

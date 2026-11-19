@@ -85,3 +85,29 @@ func TestGetMCPServerPort(t *testing.T) {
 		})
 	}
 }
+
+func TestGetTransportMode(t *testing.T) {
+	tests := []struct {
+		env     string
+		want    TransportMode
+		wantErr bool
+	}{
+		{env: "", want: TransportHTTPStream},
+		{env: "streamable-http", want: TransportHTTPStream},
+		{env: " SSE ", want: TransportSSE},
+		{env: "stdio", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.env, func(t *testing.T) {
+			t.Setenv("MCP_TRANSPORT", tt.env)
+			got, err := getTransportMode()
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

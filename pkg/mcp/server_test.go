@@ -17,6 +17,7 @@ const (
 	testVulnID      = "TEST-2023-001"
 	testVulnSummary = "Test vulnerability"
 	testEcosystem   = "npm"
+	testVersion     = "1.0.0"
 )
 
 // mockOSVClient is a mock implementation of the OSV client for testing
@@ -382,4 +383,75 @@ func TestHandleGetVulnerability(t *testing.T) {
 	assert.Equal(t, expectedID, vuln.ID)
 	assert.Equal(t, testVulnSummary, vuln.Summary)
 	assert.Equal(t, "This is a test vulnerability", vuln.Details)
+}
+
+func TestToolDefinitions(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(WithOSVClient(newMockOSVClient()))
+	tools := server.mcpServer.ListTools()
+	require.Len(t, tools, 3)
+
+	for name, st := range tools {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			tool := st.Tool
+			assert.NotEmpty(t, tool.Title, "tool %s should have a title", name)
+			assert.Equal(t, tool.Title, tool.Annotations.Title, "tool %s title and annotation title should match", name)
+			require.NotNil(t, tool.Annotations.ReadOnlyHint)
+			assert.True(t, *tool.Annotations.ReadOnlyHint, "tool %s should be read-only", name)
+			require.NotNil(t, tool.Annotations.DestructiveHint)
+			assert.False(t, *tool.Annotations.DestructiveHint, "tool %s should not be destructive", name)
+			require.NotNil(t, tool.Annotations.IdempotentHint)
+			assert.True(t, *tool.Annotations.IdempotentHint, "tool %s should be idempotent", name)
+			require.NotNil(t, tool.Annotations.OpenWorldHint)
+			assert.True(t, *tool.Annotations.OpenWorldHint, "tool %s should be open-world", name)
+		})
+	}
+}
+
+func TestHandleQueryVulnerabilitiesBatchValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		queries []interface{}
+		wantErr string
+	}{
+		{
+			name:    "empty queries",
+			queries: []interface{}{},
+			wantErr: "must contain at least one query",
+		},
+		{
+			name: "query without package or commit",
+			queries: []interface{}{
+				map[string]interface{}{argPackageName: "pkg", argEcosystem: testEcosystem, argVersion: testVersion},
+				map[string]interface{}{argVersion: testVersion},
+			},
+			wantErr: "must be specified in query 1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mockClient := newMockOSVClient()
+			mockClient.queryBatchFunc = func(context.Context, osv.QueryBatchRequest) (*osv.QueryBatchResponse, error) {
+				t.Error("OSV API should not be called for invalid input")
+				return nil, nil
+			}
+			server := NewServer(WithOSVClient(mockClient))
+
+			request := mcp.CallToolRequest{}
+			request.Params.Arguments = map[string]interface{}{"queries": tt.queries}
+
+			result, err := server.handleQueryVulnerabilitiesBatch(context.Background(), request)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.True(t, result.IsError)
+			assert.Contains(t, getTextContent(result), tt.wantErr)
+		})
+	}
 }
