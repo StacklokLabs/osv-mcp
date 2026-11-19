@@ -19,8 +19,9 @@ const (
 	// ServerName is the name of the MCP server
 	ServerName = "osv-mcp"
 
-	// ServerVersion is the version of the MCP server
-	ServerVersion = "0.1.0"
+	// DefaultVersion is the version reported when none is set with WithVersion.
+	DefaultVersion = "dev"
+
 	// ServerPort is the port the MCP server will listen on
 	ServerPort = "8080"
 )
@@ -39,19 +40,21 @@ const (
 type Server struct {
 	mcpServer *server.MCPServer
 	osvClient osv.OSVClient
+	version   string
 }
 
 // NewServer creates a new OSV MCP server
 func NewServer(opts ...ServerOption) *Server {
 	s := &Server{
 		osvClient: osv.NewClient(),
+		version:   DefaultVersion,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	mcpServer := server.NewMCPServer(ServerName, ServerVersion)
+	mcpServer := server.NewMCPServer(ServerName, s.version)
 
 	// All tools are read-only queries against the OSV API.
 	readOnlyAnnotations := func(title string) mcp.ToolAnnotation {
@@ -167,6 +170,16 @@ func NewServer(opts ...ServerOption) *Server {
 
 // ServerOption is a function that configures a Server
 type ServerOption func(*Server)
+
+// WithVersion sets the server version reported to clients. An empty version
+// leaves the default.
+func WithVersion(version string) ServerOption {
+	return func(s *Server) {
+		if version != "" {
+			s.version = version
+		}
+	}
+}
 
 // WithOSVClient sets the OSV client to use
 func WithOSVClient(client osv.OSVClient) ServerOption {

@@ -455,3 +455,41 @@ func TestHandleQueryVulnerabilitiesBatchValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestServerVersion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		opts []ServerOption
+		want string
+	}{
+		{name: "default", want: DefaultVersion},
+		{name: "WithVersion", opts: []ServerOption{WithVersion("1.2.3")}, want: "1.2.3"},
+		{name: "empty WithVersion keeps default", opts: []ServerOption{WithVersion("")}, want: DefaultVersion},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := NewServer(tt.opts...)
+			resp := s.mcpServer.HandleMessage(context.Background(), json.RawMessage(
+				`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{`+
+					`"protocolVersion":"2025-06-18","capabilities":{},`+
+					`"clientInfo":{"name":"test","version":"0.0.1"}}}`))
+
+			raw, err := json.Marshal(resp)
+			require.NoError(t, err)
+			var msg struct {
+				Result struct {
+					ServerInfo struct {
+						Version string `json:"version"`
+					} `json:"serverInfo"`
+				} `json:"result"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &msg))
+			assert.Equal(t, tt.want, msg.Result.ServerInfo.Version)
+		})
+	}
+}
