@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
+	"net/http"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/google/jsonschema-go/jsonschema"
+	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/StacklokLabs/osv-mcp/pkg/osv"
 )
@@ -26,21 +26,33 @@ const (
 	ServerPort = "8080"
 )
 
-// Tool argument names shared by the query tools' input schemas and handlers.
-const (
-	argCommit      = "commit"
-	argVersion     = "version"
-	argPackageName = "package_name"
-	argEcosystem   = "ecosystem"
-	argPurl        = "purl"
-	argID          = "id"
-)
-
 // Server is an MCP server that provides OSV vulnerability information
 type Server struct {
-	mcpServer *server.MCPServer
+	mcpServer *sdk.Server
 	osvClient osv.OSVClient
 	version   string
+}
+
+// queryArgs are the arguments shared by query_vulnerability and every entry of
+// query_vulnerabilities_batch. All of them are optional in the schema: the
+// combinations that make sense are enforced by buildQueryRequest so that the
+// single and batch tools reject the same input with the same message.
+type queryArgs struct {
+	Commit      string `json:"commit,omitempty" jsonschema:"The commit hash to query for. If specified, version should not be set."`
+	Version     string `json:"version,omitempty" jsonschema:"The version string to query for. If specified, commit should not be set."`
+	PackageName string `json:"package_name,omitempty" jsonschema:"The name of the package."`
+	Ecosystem   string `json:"ecosystem,omitempty" jsonschema:"The ecosystem for this package (e.g., PyPI, npm, Go)."`
+	PURL        string `json:"purl,omitempty" jsonschema:"The package URL for this package. If purl is used, package_name and ecosystem should not be set."`
+}
+
+// queryBatchArgs is the input of query_vulnerabilities_batch.
+type queryBatchArgs struct {
+	Queries []queryArgs `json:"queries" jsonschema:"Array of query objects"`
+}
+
+// getVulnerabilityArgs is the input of get_vulnerability.
+type getVulnerabilityArgs struct {
+	ID string `json:"id" jsonschema:"The OSV vulnerability ID"`
 }
 
 // NewServer creates a new OSV MCP server
@@ -54,118 +66,85 @@ func NewServer(opts ...ServerOption) *Server {
 		opt(s)
 	}
 
-	mcpServer := server.NewMCPServer(ServerName, s.version)
+	s.mcpServer = sdk.NewServer(&sdk.Implementation{
+		Name:    ServerName,
+		Version: s.version,
+	}, nil)
 
-	// All tools are read-only queries against the OSV API.
-	readOnlyAnnotations := func(title string) mcp.ToolAnnotation {
-		return mcp.ToolAnnotation{
-			Title:           title,
-			ReadOnlyHint:    mcp.ToBoolPtr(true),
-			DestructiveHint: mcp.ToBoolPtr(false),
-			IdempotentHint:  mcp.ToBoolPtr(true),
-			OpenWorldHint:   mcp.ToBoolPtr(true),
-		}
-	}
+	querySchema := toolSchema[queryArgs]()
+	batchSchema := toolSchema[queryBatchArgs]()
+	// The queries field has always been a plain array of at least one entry,
+	// while a Go slice infers "null or array" with no minimum length.
+	queries := batchSchema.Properties["queries"]
+	queries.Types = []string{"array"}
+	queries.MinItems = jsonschema.Ptr(1)
 
-	// Register tools
-	queryVulnTool := mcp.NewToolWithRawSchema(
-		"query_vulnerability",
-		"Query for vulnerabilities affecting a specific package version or commit",
-		json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"commit": {
-						"type": "string",
-						"description": "The commit hash to query for. If specified, version should not be set."
-					},
-					"version": {
-						"type": "string",
-						"description": "The version string to query for. If specified, commit should not be set."
-					},
-					"package_name": {
-						"type": "string",
-						"description": "The name of the package."
-					},
-					"ecosystem": {
-						"type": "string",
-						"description": "The ecosystem for this package (e.g., PyPI, npm, Go)."
-					},
-					"purl": {
-						"type": "string",
-						"description": "The package URL for this package. If purl is used, package_name and ecosystem should not be set."
-					}
-				},
-				"required": []
-			}`),
-	)
-	queryVulnTool.Title = "Query Vulnerability"
-	queryVulnTool.Annotations = readOnlyAnnotations(queryVulnTool.Title)
-	mcpServer.AddTool(queryVulnTool, s.handleQueryVulnerability)
+	sdk.AddTool(s.mcpServer, &sdk.Tool{
+		Name:        "query_vulnerability",
+		Title:       "Query Vulnerability",
+		Description: "Query for vulnerabilities affecting a specific package version or commit",
+		Annotations: readOnlyAnnotations("Query Vulnerability"),
+		InputSchema: querySchema,
+	}, s.handleQueryVulnerability)
 
-	queryBatchTool := mcp.NewToolWithRawSchema(
-		"query_vulnerabilities_batch",
-		"Query for vulnerabilities affecting multiple packages or commits at once",
-		json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"queries": {
-						"type": "array",
-						"description": "Array of query objects",
-						"minItems": 1,
-						"items": {
-							"type": "object",
-							"properties": {
-								"commit": {
-									"type": "string",
-									"description": "The commit hash to query for. If specified, version should not be set."
-								},
-								"version": {
-									"type": "string",
-									"description": "The version string to query for. If specified, commit should not be set."
-								},
-								"package_name": {
-									"type": "string",
-									"description": "The name of the package."
-								},
-								"ecosystem": {
-									"type": "string",
-									"description": "The ecosystem for this package (e.g., PyPI, npm, Go)."
-								},
-								"purl": {
-									"type": "string",
-									"description": "The package URL for this package. If purl is used, package_name and ecosystem should not be set."
-								}
-							}
-						}
-					}
-				},
-				"required": ["queries"]
-			}`),
-	)
-	queryBatchTool.Title = "Query Vulnerabilities (Batch)"
-	queryBatchTool.Annotations = readOnlyAnnotations(queryBatchTool.Title)
-	mcpServer.AddTool(queryBatchTool, s.handleQueryVulnerabilitiesBatch)
+	sdk.AddTool(s.mcpServer, &sdk.Tool{
+		Name:        "query_vulnerabilities_batch",
+		Title:       "Query Vulnerabilities (Batch)",
+		Description: "Query for vulnerabilities affecting multiple packages or commits at once",
+		Annotations: readOnlyAnnotations("Query Vulnerabilities (Batch)"),
+		InputSchema: batchSchema,
+	}, s.handleQueryVulnerabilitiesBatch)
 
-	getVulnTool := mcp.NewToolWithRawSchema(
-		"get_vulnerability",
-		"Get details for a specific vulnerability by ID",
-		json.RawMessage(`{
-				"type": "object",
-				"properties": {
-					"id": {
-						"type": "string",
-						"description": "The OSV vulnerability ID"
-					}
-				},
-				"required": ["id"]
-			}`),
-	)
-	getVulnTool.Title = "Get Vulnerability"
-	getVulnTool.Annotations = readOnlyAnnotations(getVulnTool.Title)
-	mcpServer.AddTool(getVulnTool, s.handleGetVulnerability)
+	sdk.AddTool(s.mcpServer, &sdk.Tool{
+		Name:        "get_vulnerability",
+		Title:       "Get Vulnerability",
+		Description: "Get details for a specific vulnerability by ID",
+		Annotations: readOnlyAnnotations("Get Vulnerability"),
+		InputSchema: toolSchema[getVulnerabilityArgs](),
+	}, s.handleGetVulnerability)
 
-	s.mcpServer = mcpServer
 	return s
+}
+
+// toolSchema returns the input schema inferred from args, adjusted so that no
+// object in it rejects unknown members: a client that sends an extra field had
+// it ignored before the move to the official SDK, and still does.
+func toolSchema[T any]() *jsonschema.Schema {
+	schema, err := jsonschema.For[T](nil)
+	if err != nil {
+		// The types above are fixed and simple; a failure here is a
+		// programming error, and the SDK panics on bad schemas anyway.
+		panic(fmt.Sprintf("osv-mcp: cannot infer the tool schema: %v", err))
+	}
+	allowUnknownArgs(schema)
+	return schema
+}
+
+// allowUnknownArgs marks schema and every object nested in it as accepting
+// additional properties.
+func allowUnknownArgs(schema *jsonschema.Schema) {
+	if schema == nil {
+		return
+	}
+	// A nil additionalProperties schema places no constraint on members the
+	// struct does not declare; the inference fills in a "false" schema.
+	schema.AdditionalProperties = nil
+	for _, property := range schema.Properties {
+		allowUnknownArgs(property)
+	}
+	allowUnknownArgs(schema.Items)
+}
+
+// readOnlyAnnotations describes a tool that only reads from the OSV API.
+func readOnlyAnnotations(title string) *sdk.ToolAnnotations {
+	no, yes := false, true
+	return &sdk.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    true,
+		DestructiveHint: &no,
+		IdempotentHint:  true,
+		OpenWorldHint:   &yes,
+	}
 }
 
 // ServerOption is a function that configures a Server
@@ -192,110 +171,96 @@ func WithOSVClient(client osv.OSVClient) ServerOption {
 func (s *Server) ServeSSE(addr string) error {
 	log.Printf("WARNING: the SSE transport is deprecated by the MCP specification; use streamable-http instead")
 	log.Printf("Starting OSV MCP server (SSE) on %s", addr)
-	sseServer := server.NewSSEServer(s.mcpServer)
-	return sseServer.Start(addr)
+
+	return http.ListenAndServe(addr, s.sseHandler())
+}
+
+// sseHandler serves the deprecated HTTP+SSE transport.
+func (s *Server) sseHandler() http.Handler {
+	handler := sdk.NewSSEHandler(func(*http.Request) *sdk.Server { return s.mcpServer }, nil)
+
+	mux := http.NewServeMux()
+	mux.Handle("/sse", handler)
+	// Clients follow the endpoint event the handler sends on /sse, but some
+	// older ones still post to the path mcp-go used, so serve that too.
+	mux.Handle("/message", handler)
+
+	return mux
 }
 
 // ServeHTTPStream starts the MCP server using Streamable HTTP transport
 func (s *Server) ServeHTTPStream(addr string) error {
 	log.Printf("Starting OSV MCP server (Streamable HTTP) on %s", addr)
 
-	httpSrv := server.NewStreamableHTTPServer(s.mcpServer,
-		server.WithEndpointPath("/mcp"),
-		// Every tool call is an independent OSV API query, so there's no
-		// session state to keep. Stateless mode matches MCP 2026-07-28,
-		// which removed protocol-level sessions.
-		server.WithStateLess(true),
-		server.WithHeartbeatInterval(30*time.Second),
+	return http.ListenAndServe(addr, s.streamableHTTPHandler())
+}
+
+// streamableHTTPHandler serves the Streamable HTTP transport at /mcp.
+func (s *Server) streamableHTTPHandler() http.Handler {
+	// Every tool call is an independent OSV API query, so there's no session
+	// state to keep. Stateless mode matches MCP 2026-07-28, which removed
+	// protocol-level sessions.
+	handler := sdk.NewStreamableHTTPHandler(
+		func(*http.Request) *sdk.Server { return s.mcpServer },
+		&sdk.StreamableHTTPOptions{Stateless: true},
 	)
 
-	return httpSrv.Start(addr)
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", handler)
+
+	return mux
 }
 
 // handleQueryVulnerability handles the query_vulnerability tool
-func (s *Server) handleQueryVulnerability(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	commit := mcp.ParseString(request, argCommit, "")
-	version := mcp.ParseString(request, argVersion, "")
-	packageName := mcp.ParseString(request, argPackageName, "")
-	ecosystem := mcp.ParseString(request, argEcosystem, "")
-	purl := mcp.ParseString(request, argPurl, "")
-
-	queryReq, err := buildQueryRequest(commit, version, packageName, ecosystem, purl)
+func (s *Server) handleQueryVulnerability(
+	ctx context.Context, _ *sdk.CallToolRequest, args queryArgs,
+) (*sdk.CallToolResult, any, error) {
+	queryReq, err := buildQueryRequest(args)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return errorResult(err.Error()), nil, nil
 	}
 
-	// Query OSV API
 	resp, err := s.osvClient.Query(ctx, queryReq)
 	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to query OSV API", err), nil
+		return errorResult(fmt.Sprintf("Failed to query OSV API: %v", err)), nil, nil
 	}
 
-	// Format response
-	result, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to marshal response", err), nil
-	}
-
-	return mcp.NewToolResultText(string(result)), nil
+	return jsonResult(resp)
 }
 
 // handleQueryVulnerabilitiesBatch handles the query_vulnerabilities_batch tool
-func (s *Server) handleQueryVulnerabilitiesBatch(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]interface{})
-	if !ok {
-		return mcp.NewToolResultError("Invalid arguments format"), nil
+func (s *Server) handleQueryVulnerabilitiesBatch(
+	ctx context.Context, _ *sdk.CallToolRequest, args queryBatchArgs,
+) (*sdk.CallToolResult, any, error) {
+	if len(args.Queries) == 0 {
+		return errorResult("Invalid 'queries' parameter: must contain at least one query"), nil, nil
 	}
 
-	queriesRaw, ok := args["queries"].([]interface{})
-	if !ok {
-		return mcp.NewToolResultError("Invalid 'queries' parameter: must be array"), nil
-	}
-	if len(queriesRaw) == 0 {
-		return mcp.NewToolResultError("Invalid 'queries' parameter: must contain at least one query"), nil
-	}
-
-	// Convert queries to QueryRequest objects
-	var queries []osv.QueryRequest
-	for i, queryRaw := range queriesRaw {
-		queryMap, ok := queryRaw.(map[string]interface{})
-		if !ok {
-			return mcp.NewToolResultError(fmt.Sprintf("Invalid query at index %d", i)), nil
-		}
-
-		commit, _ := queryMap[argCommit].(string)
-		version, _ := queryMap[argVersion].(string)
-		packageName, _ := queryMap[argPackageName].(string)
-		ecosystem, _ := queryMap[argEcosystem].(string)
-		purl, _ := queryMap[argPurl].(string)
-
-		queryReq, err := buildQueryRequest(commit, version, packageName, ecosystem, purl)
+	queries := make([]osv.QueryRequest, 0, len(args.Queries))
+	for i, query := range args.Queries {
+		queryReq, err := buildQueryRequest(query)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("%v in query %d", err, i)), nil
+			return errorResult(fmt.Sprintf("%v in query %d", err, i)), nil, nil
 		}
 
 		queries = append(queries, queryReq)
 	}
 
-	// Query OSV API
 	resp, err := s.osvClient.QueryBatch(ctx, osv.QueryBatchRequest{Queries: queries})
 	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to query OSV API", err), nil
+		return errorResult(fmt.Sprintf("Failed to query OSV API: %v", err)), nil, nil
 	}
 
-	// Format response
-	result, err := json.MarshalIndent(resp, "", "  ")
-	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to marshal response", err), nil
-	}
-
-	return mcp.NewToolResultText(string(result)), nil
+	return jsonResult(resp)
 }
 
-// buildQueryRequest validates a single query's arguments and converts them to
-// an OSV query request. The same rules apply to query_vulnerability and to
-// each entry of query_vulnerabilities_batch.
-func buildQueryRequest(commit, version, packageName, ecosystem, purl string) (osv.QueryRequest, error) {
+// buildQueryRequest validates a query's arguments and converts them to an OSV
+// query request. The same rules apply to query_vulnerability and to each entry
+// of query_vulnerabilities_batch.
+func buildQueryRequest(args queryArgs) (osv.QueryRequest, error) {
+	commit, version := args.Commit, args.Version
+	packageName, ecosystem, purl := args.PackageName, args.Ecosystem, args.PURL
+
 	if commit != "" && version != "" {
 		return osv.QueryRequest{}, errors.New("both commit and version cannot be specified")
 	}
@@ -319,23 +284,37 @@ func buildQueryRequest(commit, version, packageName, ecosystem, purl string) (os
 }
 
 // handleGetVulnerability handles the get_vulnerability tool
-func (s *Server) handleGetVulnerability(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	id := mcp.ParseString(request, argID, "")
-	if id == "" {
-		return mcp.NewToolResultError("Vulnerability ID is required"), nil
+func (s *Server) handleGetVulnerability(
+	ctx context.Context, _ *sdk.CallToolRequest, args getVulnerabilityArgs,
+) (*sdk.CallToolResult, any, error) {
+	if args.ID == "" {
+		return errorResult("Vulnerability ID is required"), nil, nil
 	}
 
-	// Get vulnerability from OSV API
-	vuln, err := s.osvClient.GetVulnerability(ctx, id)
+	vuln, err := s.osvClient.GetVulnerability(ctx, args.ID)
 	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to get vulnerability", err), nil
+		return errorResult(fmt.Sprintf("Failed to get vulnerability: %v", err)), nil, nil
 	}
 
-	// Format response
-	result, err := json.MarshalIndent(vuln, "", "  ")
+	return jsonResult(vuln)
+}
+
+// errorResult returns a tool result that reports a failure to the client.
+func errorResult(message string) *sdk.CallToolResult {
+	return &sdk.CallToolResult{
+		IsError: true,
+		Content: []sdk.Content{&sdk.TextContent{Text: message}},
+	}
+}
+
+// jsonResult returns a tool result holding the JSON encoding of v.
+func jsonResult(v any) (*sdk.CallToolResult, any, error) {
+	result, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return mcp.NewToolResultErrorFromErr("Failed to marshal response", err), nil
+		return errorResult(fmt.Sprintf("Failed to marshal response: %v", err)), nil, nil
 	}
 
-	return mcp.NewToolResultText(string(result)), nil
+	return &sdk.CallToolResult{
+		Content: []sdk.Content{&sdk.TextContent{Text: string(result)}},
+	}, nil, nil
 }
